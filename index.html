@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jitter - The Dedicated Newsletter App</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script>
+        // Material 2.5 Dark Theme Configuration
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bgDark: '#121212',
+                        surface: '#1e1e1e',
+                        surfaceElevated: '#2c2c2c',
+                        primary: '#BB86FC',
+                        secondary: '#03DAC6',
+                        textMain: '#E0E0E0',
+                        textMuted: '#A0A0A0'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #121212; color: #E0E0E0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        .nav-link { transition: color 0.2s; }
+        .nav-link:hover { color: #BB86FC; }
+        .btn-primary { background-color: #BB86FC; color: #121212; font-weight: bold; transition: opacity 0.2s; }
+        .btn-primary:hover { opacity: 0.8; }
+        .btn-secondary { background-color: transparent; border: 2px solid #03DAC6; color: #03DAC6; font-weight: bold; transition: all 0.2s; }
+        .btn-secondary:hover { background-color: rgba(3, 218, 198, 0.1); }
+        .feature-card { background-color: #1e1e1e; border: 1px solid #2c2c2c; transition: transform 0.2s; }
+        .feature-card:hover { transform: translateY(-5px); border-color: #BB86FC; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-surface shadow-lg border-b border-gray-800 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="material-icons text-primary text-3xl">email</span>
+                <h1 class="text-2xl font-bold tracking-wider text-primary">Jitter</h1>
+            </div>
+            <div class="flex gap-6 text-sm font-semibold">
+                <a href="#" class="nav-link text-primary">Home</a>
+                <a href="jitter_client.html" class="nav-link text-textMuted flex items-center gap-1">
+                    <span class="material-icons" style="font-size: 18px;">inbox</span> Use Jitter
+                </a>
+                <a href="jitter_publisher.html" class="nav-link text-textMuted flex items-center gap-1">
+                    <span class="material-icons" style="font-size: 18px;">campaign</span> Publishers
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="flex-1 flex flex-col items-center justify-center text-center px-6 py-20 bg-gradient-to-b from-bgDark to-surface/50">
+        <h2 class="text-5xl md:text-6xl font-bold mb-6 text-white leading-tight max-w-4xl">
+            Take Back Your <span class="text-primary">Inbox.</span>
+        </h2>
+        <p class="text-lg md:text-xl text-textMuted max-w-2xl mb-10">
+            Jitter is a dedicated, standalone web app strictly for newsletters. Stop letting subscriptions clutter your personal emails. Read what you want, when you want, without the noise.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4">
+            <a href="jitter_client.html" class="btn-primary px-8 py-3 rounded-lg flex items-center justify-center gap-2 text-lg">
+                <span class="material-icons">launch</span> Open App
+            </a>
+            <a href="jitter_publisher.html" class="btn-secondary px-8 py-3 rounded-lg flex items-center justify-center gap-2 text-lg">
+                Publisher Dashboard
+            </a>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section class="max-w-6xl mx-auto px-6 py-20 grid md:grid-cols-3 gap-8">
+        
+        <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center mb-6">
+                <span class="material-icons text-primary text-2xl">cleaning_services</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">Declutter Your Life</h3>
+            <p class="text-textMuted leading-relaxed">
+                By moving your subscriptions to Jitter, your actual email inbox stays reserved for personal and urgent communications. No more digging through daily roundups to find important messages.
+            </p>
+        </div>
+
+        <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-secondary/20 rounded-lg flex items-center justify-center mb-6">
+                <span class="material-icons text-secondary text-2xl">wifi_off</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">Offline Reading</h3>
+            <p class="text-textMuted leading-relaxed">
+                Save newsletters with a single click. Jitter downloads the raw HTML and caches it securely in your browser's IndexedDB, meaning you can read your favorite publishers on the subway or an airplane.
+            </p>
+        </div>
+
+        <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mb-6">
+                <span class="material-icons text-blue-400 text-2xl">code</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-3">100% Open Source</h3>
+            <p class="text-textMuted leading-relaxed">
+                Jitter believes in transparency. Powered by WebRTC (PeerJS), the network connects clients directly to the server hub without invasive third-party tracking. The code is yours to verify and modify.
+            </p>
+        </div>
+
+    </section>
+
+    <!-- Call to Action / Info -->
+    <section class="bg-surface border-y border-gray-800 py-16 px-6 text-center">
+        <h3 class="text-2xl font-bold text-white mb-4">Are you a Publisher?</h3>
+        <p class="text-textMuted max-w-2xl mx-auto mb-6">
+            Jitter provides a distraction-free environment for your readers. No algorithms, no spam filters, just pure content delivered via direct publisher codes.
+        </p>
+        <p class="text-sm text-textMuted font-mono bg-bgDark py-3 px-6 rounded-lg inline-block border border-gray-700">
+            Publisher codes are exactly 6 digits long. Distribute them anywhere.
+        </p>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-bgDark py-8 text-center text-sm text-textMuted flex flex-col items-center">
+        <div class="flex items-center gap-2 mb-2">
+            <span class="material-icons text-primary" style="font-size: 16px;">email</span>
+            <span class="font-bold tracking-widest text-white">JITTER</span>
+        </div>
+        <p>&copy; 2026 Jitter Open Source Project. Built for better reading.</p>
+    </footer>
+
+</body>
+</html>
