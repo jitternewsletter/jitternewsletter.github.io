@@ -303,7 +303,8 @@
             // Attempt to parse if YYF returns JSON, else assume the text is the URL
             try {
                 const json = JSON.parse(text);
-                return json.url || json.link || text;
+                // Extract fileUrl (YYF standard response)
+                return json.fileUrl || json.url || json.link || text;
             } catch(e) {
                 return text.trim();
             }
