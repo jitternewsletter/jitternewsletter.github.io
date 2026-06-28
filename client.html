@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jitter - The Newsletter App</title>
+    <!-- Tailwind CSS for layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        // Material 2.5 Dark Theme Configuration
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bgDark: '#121212',
+                        surface: '#1e1e1e',
+                        surfaceElevated: '#2c2c2c',
+                        primary: '#BB86FC',
+                        secondary: '#03DAC6',
+                        textMain: '#E0E0E0',
+                        textMuted: '#A0A0A0'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #121212; color: #E0E0E0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background-color: rgba(187, 134, 252, 0.1); color: #BB86FC; }
+        .nav-item.active { background-color: rgba(187, 134, 252, 0.15); color: #BB86FC; font-weight: 600; border-radius: 12px; }
+        .card { background-color: #1e1e1e; border-radius: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.4); }
+        .btn-primary { background-color: #BB86FC; color: #121212; border-radius: 8px; font-weight: bold; transition: opacity 0.2s; }
+        .btn-primary:hover { opacity: 0.8; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #2c2c2c; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar Navigation -->
+    <nav class="w-64 bg-surface shadow-lg flex flex-col h-full border-r border-gray-800 z-10">
+        <div class="p-6 flex items-center gap-3">
+            <span class="material-icons text-primary text-3xl">email</span>
+            <h1 class="text-2xl font-bold tracking-wider text-primary">Jitter</h1>
+        </div>
+        
+        <div class="flex-1 px-4 space-y-2 mt-4">
+            <div class="nav-item active flex items-center p-3 gap-4" onclick="navigate('home')">
+                <span class="material-icons">inbox</span>
+                <span>Inbox</span>
+            </div>
+            <div class="nav-item flex items-center p-3 gap-4" onclick="navigate('saved')">
+                <span class="material-icons">bookmark</span>
+                <span>Saved Letters</span>
+            </div>
+            <div class="nav-item flex items-center p-3 gap-4" onclick="navigate('subscriptions')">
+                <span class="material-icons">subscriptions</span>
+                <span>Subscriptions</span>
+            </div>
+            <div class="nav-item flex items-center p-3 gap-4" onclick="navigate('settings')">
+                <span class="material-icons">settings</span>
+                <span>Settings</span>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-gray-800">
+            <div class="flex items-center gap-2 text-sm">
+                <div id="net-status-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
+                <span id="net-status-text" class="text-textMuted">Connecting to network...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col relative h-full bg-bgDark">
+        
+        <!-- Top App Bar -->
+        <header class="bg-surface h-16 shadow-md flex items-center px-6 sticky top-0 z-10">
+            <h2 id="page-title" class="text-xl font-semibold">Inbox</h2>
+        </header>
+
+        <!-- View Containers -->
+        <div class="p-6 flex-1 overflow-y-auto relative">
+            
+            <!-- HOME VIEW (Inbox) -->
+            <div id="view-home" class="view-section">
+                <div id="loading-home" class="hidden flex flex-col items-center justify-center mt-10">
+                    <span class="material-icons animate-spin text-4xl text-primary">refresh</span>
+                    <p class="mt-4 text-textMuted">Syncing your newsletters with Server...</p>
+                </div>
+                <div id="inbox-list" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <!-- Cards injected here -->
+                </div>
+                <div id="empty-home" class="hidden flex flex-col items-center justify-center mt-20">
+                    <span class="material-icons text-6xl text-gray-700">drafts</span>
+                    <h3 class="text-xl mt-4">Your inbox is empty.</h3>
+                    <p class="text-textMuted mt-2">Go to Subscriptions to add publishers.</p>
+                </div>
+                <div id="error-home" class="hidden flex flex-col items-center justify-center mt-20 text-red-400">
+                    <span class="material-icons text-6xl">cloud_off</span>
+                    <h3 class="text-xl mt-4">Could not reach Jitter Server.</h3>
+                    <p class="text-textMuted mt-2 text-center">Ensure the server is running and your internet connection is stable.</p>
+                    <button onclick="loadInbox()" class="mt-4 border border-red-400 px-4 py-2 rounded hover:bg-red-900/30 transition">Retry Sync</button>
+                </div>
+            </div>
+
+            <!-- SAVED VIEW -->
+            <div id="view-saved" class="view-section hidden">
+                <div id="saved-list" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"></div>
+                <div id="empty-saved" class="hidden text-center mt-20">
+                    <span class="material-icons text-6xl text-gray-700">bookmark_border</span>
+                    <h3 class="text-xl mt-4">No saved newsletters yet.</h3>
+                </div>
+            </div>
+
+            <!-- SUBSCRIPTIONS VIEW -->
+            <div id="view-subscriptions" class="view-section hidden max-w-2xl mx-auto">
+                <div class="card p-6 mb-8 border border-gray-800">
+                    <h3 class="text-lg font-semibold mb-4">Add a Publisher</h3>
+                    <div class="flex gap-4">
+                        <input type="text" id="pub-code-input" maxlength="6" placeholder="Enter 6-digit code" class="flex-1 bg-bgDark border border-gray-700 rounded p-3 text-textMain focus:outline-none focus:border-primary">
+                        <button onclick="addSubscription()" class="btn-primary px-6 py-3">Subscribe</button>
+                    </div>
+                </div>
+
+                <h3 class="text-lg font-semibold mb-4 px-2">Your Subscriptions</h3>
+                <div id="subs-list" class="space-y-3">
+                    <!-- Subs injected here -->
+                </div>
+            </div>
+
+            <!-- SETTINGS VIEW -->
+            <div id="view-settings" class="view-section hidden max-w-2xl mx-auto">
+                <div class="card p-6 border border-gray-800">
+                    <h3 class="text-lg font-semibold mb-4">Storage Settings</h3>
+                    <button onclick="clearSavedData()" class="bg-red-900 text-red-200 px-4 py-2 rounded font-semibold hover:bg-red-800 transition">Clear All Saved Newsletters</button>
+                </div>
+            </div>
+
+            <!-- READER VIEW (Overlay) -->
+            <div id="view-reader" class="hidden absolute inset-0 bg-bgDark z-20 flex flex-col">
+                <div class="bg-surface h-16 shadow-md flex items-center justify-between px-6 shrink-0">
+                    <button onclick="closeReader()" class="flex items-center gap-2 text-textMuted hover:text-white transition">
+                        <span class="material-icons">arrow_back</span> Back
+                    </button>
+                    <div class="flex gap-4">
+                        <button id="btn-save-letter" class="flex items-center gap-2 text-primary hover:text-white transition hidden">
+                            <span class="material-icons">download</span> Save Offline
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6 overflow-y-auto flex-1 flex justify-center">
+                    <div class="max-w-4xl w-full bg-surfaceElevated rounded-lg shadow-xl overflow-hidden flex flex-col">
+                        <div class="p-6 border-b border-gray-700">
+                            <h1 id="reader-title" class="text-3xl font-bold mb-2">Title</h1>
+                            <p class="text-textMuted">By <span id="reader-pub" class="text-secondary font-semibold">Publisher</span> • <span id="reader-date">Date</span></p>
+                        </div>
+                        <div class="flex-1 bg-white relative">
+                            <!-- We use an iframe to load the YYF link securely -->
+                            <iframe id="reader-frame" class="w-full h-full min-h-[600px] border-none"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // --- State Management ---
+        const SERVER_ID = "Jitter-Server";
+        let subscriptions = JSON.parse(localStorage.getItem('jitter_subs')) || [];
+        let currentLetterViewing = null;
+
+        // --- IndexedDB Setup ---
+        const DB_NAME = 'JitterDB';
+        const STORE_NAME = 'savedLetters';
+        let db;
+
+        const initDB = () => {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = (e) => {
+                    db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve(db);
+                };
+                request.onerror = (e) => reject(e.target.error);
+            });
+        };
+
+        // --- PeerJS Background Connection & Heartbeat ---
+        let peer;
+        let isSignalingConnected = false;
+
+        function initPeer() {
+            peer = new Peer({ debug: 1 }); // Random ID for client
+
+            peer.on('open', (id) => {
+                isSignalingConnected = true;
+                updateNetStatus(true);
+            });
+
+            peer.on('disconnected', () => {
+                isSignalingConnected = false;
+                updateNetStatus(false);
+            });
+
+            peer.on('error', (err) => {
+                console.error("PeerJS Client Error:", err);
+            });
+        }
+
+        // Heartbeat to keep signaling active
+        setInterval(() => {
+            if (peer && peer.disconnected) {
+                console.log("[HEARTBEAT] Reconnecting to signaling server...");
+                peer.reconnect();
+            }
+        }, 5000);
+
+        function updateNetStatus(connected) {
+            const dot = document.getElementById('net-status-dot');
+            const txt = document.getElementById('net-status-text');
+            if (connected) {
+                dot.className = 'w-2 h-2 rounded-full bg-green-500';
+                txt.innerText = 'Network Connected';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-red-500 animate-pulse';
+                txt.innerText = 'Offline... Reconnecting';
+            }
+        }
+
+        // --- Navigation Logic ---
+        function navigate(viewName) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            const titleMap = {
+                'home': 'Inbox',
+                'saved': 'Saved Letters',
+                'subscriptions': 'Manage Subscriptions',
+                'settings': 'Settings'
+            };
+            document.getElementById('page-title').innerText = titleMap[viewName];
+
+            // Set active class
+            let indexMap = {'home': 0, 'saved': 1, 'subscriptions': 2, 'settings': 3};
+            navItems[indexMap[viewName]].classList.add('active');
+
+            if(viewName === 'home') loadInbox();
+            if(viewName === 'subscriptions') renderSubscriptions();
+            if(viewName === 'saved') loadSaved();
+        }
+
+        // --- Server Interaction (PeerJS) ---
+        function fetchNewsletter(publisherCode) {
+            return new Promise((resolve, reject) => {
+                if (!isSignalingConnected) {
+                    return resolve({ networkError: true });
+                }
+
+                let connectionTimeout;
+                // Connect directly to Jitter-Server. Require reliable channel labeled "main"
+                const conn = peer.connect(SERVER_ID, { label: 'main', reliable: true });
+
+                connectionTimeout = setTimeout(() => {
+                    conn.close();
+                    resolve({ networkError: true }); // Server not reachable
+                }, 8000); // 8 second timeout
+
+                conn.on('open', () => {
+                    clearTimeout(connectionTimeout);
+                    
+                    const reqJSON = {
+                        role: "client",
+                        requestType: "getNewestLetter",
+                        publisherCode: publisherCode
+                    };
+                    conn.send(reqJSON);
+                });
+
+                conn.on('data', (data) => {
+                    // Quick close once data is received
+                    setTimeout(() => conn.close(), 500);
+                    
+                    if (data && data.error) {
+                        resolve(null);
+                    } else {
+                        data.publisherCode = publisherCode; // Inject for reference
+                        resolve(data);
+                    }
+                });
+
+                conn.on('error', (err) => {
+                    clearTimeout(connectionTimeout);
+                    resolve({ networkError: true });
+                });
+            });
+        }
+
+        // --- App Features ---
+
+        async function loadInbox() {
+            const inboxList = document.getElementById('inbox-list');
+            const emptyHome = document.getElementById('empty-home');
+            const errorHome = document.getElementById('error-home');
+            const loader = document.getElementById('loading-home');
+            
+            inboxList.innerHTML = '';
+            emptyHome.classList.add('hidden');
+            errorHome.classList.add('hidden');
+            
+            if (subscriptions.length === 0) {
+                emptyHome.classList.remove('hidden');
+                return;
+            }
+
+            loader.classList.remove('hidden');
+            
+            let foundAny = false;
+            let serverError = false;
+
+            // Request the server one-by-one as instructed
+            for (let code of subscriptions) {
+                const letter = await fetchNewsletter(code);
+                if (letter && letter.networkError) {
+                    serverError = true;
+                    break;
+                }
+                if (letter) {
+                    foundAny = true;
+                    inboxList.appendChild(createCard(letter, false));
+                }
+            }
+            
+            loader.classList.add('hidden');
+
+            if (serverError) {
+                inboxList.innerHTML = ''; // Clear partial loads on error
+                errorHome.classList.remove('hidden');
+            } else if (!foundAny) {
+                emptyHome.classList.remove('hidden');
+            }
+        }
+
+        function createCard(letter, isSaved) {
+            const div = document.createElement('div');
+            div.className = 'card p-5 cursor-pointer flex flex-col justify-between h-48 border border-gray-800';
+            const dateStr = new Date(letter.datePublished).toLocaleDateString();
+            
+            div.innerHTML = `
+                <div>
+                    <h3 class="text-xl font-bold truncate text-white">${letter.title}</h3>
+                    <p class="text-secondary mt-1">${letter.publisher}</p>
+                </div>
+                <div class="flex justify-between items-end mt-4">
+                    <span class="text-sm text-textMuted">${dateStr}</span>
+                    <span class="material-icons ${isSaved ? 'text-primary' : 'text-gray-600'}">
+                        ${isSaved ? 'bookmark' : 'arrow_forward'}
+                    </span>
+                </div>
+            `;
+            
+            div.onclick = () => openReader(letter, isSaved);
+            return div;
+        }
+
+        function openReader(letter, isSaved) {
+            currentLetterViewing = letter;
+            document.getElementById('view-reader').classList.remove('hidden');
+            document.getElementById('reader-title').innerText = letter.title;
+            document.getElementById('reader-pub').innerText = letter.publisher;
+            document.getElementById('reader-date').innerText = new Date(letter.datePublished).toLocaleString();
+            
+            const frame = document.getElementById('reader-frame');
+            const saveBtn = document.getElementById('btn-save-letter');
+
+            if (isSaved) {
+                // Load from blob
+                saveBtn.classList.add('hidden');
+                frame.removeAttribute('src');
+                frame.srcdoc = letter.offlineContent; 
+            } else {
+                // Load live URL
+                saveBtn.classList.remove('hidden');
+                saveBtn.onclick = () => saveCurrentNewsletter();
+                frame.removeAttribute('srcdoc');
+                frame.src = letter.bodyData;
+            }
+        }
+
+        function closeReader() {
+            document.getElementById('view-reader').classList.add('hidden');
+            document.getElementById('reader-frame').src = ''; // Clear frame
+            currentLetterViewing = null;
+        }
+
+        // --- Save / Offline Logic ---
+        async function saveCurrentNewsletter() {
+            if (!currentLetterViewing) return;
+            const letter = currentLetterViewing;
+            const btn = document.getElementById('btn-save-letter');
+            
+            btn.innerHTML = `<span class="material-icons animate-spin">sync</span> Downloading...`;
+            
+            try {
+                // Fetch the YYF HTML file content
+                const res = await fetch(letter.bodyData);
+                if (!res.ok) throw new Error("Network response was not ok");
+                const htmlContent = await res.text();
+                
+                const dbEntry = {
+                    id: `${letter.publisherCode}_${letter.datePublished}`,
+                    title: letter.title,
+                    publisher: letter.publisher,
+                    datePublished: letter.datePublished,
+                    bodyData: letter.bodyData,
+                    publisherCode: letter.publisherCode,
+                    offlineContent: htmlContent,
+                    savedAt: Date.now()
+                };
+
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).put(dbEntry);
+                
+                tx.oncomplete = () => {
+                    btn.innerHTML = `<span class="material-icons">check</span> Saved!`;
+                    setTimeout(() => btn.classList.add('hidden'), 2000);
+                };
+            } catch (err) {
+                console.error(err);
+                alert("Failed to download newsletter for offline viewing. CORS or network error.");
+                btn.innerHTML = `<span class="material-icons">download</span> Save Offline`;
+            }
+        }
+
+        function loadSaved() {
+            const savedList = document.getElementById('saved-list');
+            const emptySaved = document.getElementById('empty-saved');
+            savedList.innerHTML = '';
+            
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const req = tx.objectStore(STORE_NAME).getAll();
+            
+            req.onsuccess = (e) => {
+                const items = e.target.result;
+                if(items.length === 0) {
+                    emptySaved.classList.remove('hidden');
+                } else {
+                    emptySaved.classList.add('hidden');
+                    // Sort newest saved first
+                    items.sort((a,b) => b.savedAt - a.savedAt).forEach(item => {
+                        savedList.appendChild(createCard(item, true));
+                    });
+                }
+            };
+        }
+
+        function clearSavedData() {
+            if(confirm("Are you sure you want to delete all saved offline newsletters?")) {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).clear();
+                tx.oncomplete = () => alert("Saved data cleared.");
+            }
+        }
+
+        // --- Subscription Management ---
+        function renderSubscriptions() {
+            const list = document.getElementById('subs-list');
+            list.innerHTML = '';
+            
+            if (subscriptions.length === 0) {
+                list.innerHTML = '<p class="text-textMuted p-4 text-center">You are not subscribed to anyone yet.</p>';
+                return;
+            }
+
+            subscriptions.forEach(code => {
+                const div = document.createElement('div');
+                div.className = 'card p-4 flex justify-between items-center border border-gray-800';
+                div.innerHTML = `
+                    <span class="text-lg font-mono tracking-widest">${code}</span>
+                    <button onclick="removeSubscription('${code}')" class="text-red-400 hover:text-red-300 transition">
+                        <span class="material-icons">delete</span>
+                    </button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function addSubscription() {
+            const input = document.getElementById('pub-code-input');
+            const code = input.value.trim();
+            if(code.length !== 6 || isNaN(code)) {
+                alert("Please enter a valid 6-digit code.");
+                return;
+            }
+            if(subscriptions.includes(code)) {
+                alert("You are already subscribed to this code.");
+                return;
+            }
+            subscriptions.push(code);
+            localStorage.setItem('jitter_subs', JSON.stringify(subscriptions));
+            input.value = '';
+            renderSubscriptions();
+        }
+
+        function removeSubscription(code) {
+            subscriptions = subscriptions.filter(c => c !== code);
+            localStorage.setItem('jitter_subs', JSON.stringify(subscriptions));
+            renderSubscriptions();
+        }
+
+        // Initialize App
+        window.onload = async () => {
+            initPeer();
+            await initDB();
+            navigate('home');
+        };
+
+    </script>
+</body>
+</html>
