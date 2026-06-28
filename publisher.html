@@ -290,8 +290,8 @@
             const formData = new FormData();
             formData.append('file', file);
             
-            // Standard form-data upload to YYF
-            const response = await fetch('https://yyf.mubilop.com/upload', {
+            // Standard form-data upload to YYF (Updated to /api/upload)
+            const response = await fetch('https://yyf.mubilop.com/api/upload', {
                 method: 'POST',
                 body: formData
             });
