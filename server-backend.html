@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jitter Server Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bgDark: '#121212', surface: '#1e1e1e', surfaceElevated: '#2c2c2c',
+                        primary: '#BB86FC', secondary: '#03DAC6',
+                        textMain: '#E0E0E0', textMuted: '#A0A0A0'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #121212; color: #E0E0E0; font-family: 'Segoe UI', Roboto, sans-serif; }
+        .card { background-color: #1e1e1e; border-radius: 12px; }
+        .btn-primary { background-color: #BB86FC; color: #121212; border-radius: 8px; font-weight: bold; transition: opacity 0.2s; }
+        .btn-primary:hover { opacity: 0.8; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #2c2c2c; border-radius: 4px; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar Navigation -->
+    <nav class="w-64 bg-surface shadow-lg flex flex-col h-full border-r border-gray-800 z-10">
+        <div class="p-6 flex items-center gap-3 border-b border-gray-700">
+            <span class="material-icons text-secondary text-3xl">dns</span>
+            <div>
+                <h1 class="text-xl font-bold text-secondary">Jitter Server</h1>
+                <div class="flex items-center gap-2 mt-1">
+                    <div id="status-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span id="status-text" class="text-sm text-textMuted">Disconnected</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex-1 px-4 space-y-2 mt-4">
+            <div id="nav-pub" class="p-3 bg-white/10 text-secondary rounded-lg flex items-center gap-4 cursor-pointer" onclick="switchTab('publishers')">
+                <span class="material-icons">group</span>
+                <span>Publishers</span>
+            </div>
+            <div id="nav-log" class="p-3 text-textMuted hover:bg-white/5 hover:text-white rounded-lg flex items-center gap-4 cursor-pointer transition" onclick="switchTab('logs')">
+                <span class="material-icons">terminal</span>
+                <span>Live Logs</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col relative h-full bg-bgDark">
+        
+        <!-- Publishers Tab -->
+        <div id="tab-publishers" class="p-6 flex-1 overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-6">Manage Publishers</h2>
+            
+            <div class="card p-6 mb-8 border border-gray-700">
+                <h3 class="text-lg font-semibold mb-4">Register New Publisher</h3>
+                <div class="flex gap-4">
+                    <input type="text" id="pub-name" placeholder="Publisher Name" class="flex-1 bg-bgDark border border-gray-600 rounded p-3 text-textMain focus:outline-none focus:border-secondary">
+                    <button onclick="registerPublisher()" class="bg-secondary text-black px-6 py-3 rounded font-bold hover:bg-teal-400 transition">Register</button>
+                </div>
+            </div>
+
+            <div class="card p-6 border border-gray-700">
+                <h3 class="text-lg font-semibold mb-4">Active Publishers</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-textMuted border-b border-gray-700">
+                                <th class="pb-3 pl-2">Code</th>
+                                <th class="pb-3">Name</th>
+                                <th class="pb-3">Total Letters</th>
+                                <th class="pb-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pub-list">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Tab -->
+        <div id="tab-logs" class="p-6 flex-1 flex flex-col hidden">
+            <h2 class="text-2xl font-bold mb-4">Live Activity Logs</h2>
+            <div class="flex-1 card border border-gray-700 p-4 font-mono text-sm overflow-y-auto text-green-400 relative">
+                <div id="log-output" class="whitespace-pre-wrap pb-8"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal for API Key -->
+    <div id="modal" class="hidden fixed inset-0 bg-black/80 z-50 flex justify-center items-center">
+        <div class="bg-surface p-8 rounded-lg max-w-md w-full border border-gray-700">
+            <h2 class="text-2xl font-bold text-secondary mb-4">Registration Success!</h2>
+            <p class="mb-4">Publisher has been added successfully. Please save the API Key now, as it will <strong class="text-red-400">never be shown again</strong>.</p>
+            
+            <div class="mb-2">
+                <label class="text-sm text-textMuted">Publisher Code</label>
+                <div id="modal-code" class="text-xl font-mono bg-bgDark p-3 rounded mt-1 select-all"></div>
+            </div>
+            <div class="mb-6">
+                <label class="text-sm text-textMuted">API Key</label>
+                <div id="modal-key" class="text-md font-mono bg-bgDark p-3 rounded mt-1 select-all break-all text-primary"></div>
+            </div>
+            
+            <button onclick="closeModal()" class="w-full btn-primary py-3">I have saved it</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Database & State ---
+        let publishers = JSON.parse(localStorage.getItem('jitter_publishers')) || {}; 
+        let newsletters = JSON.parse(localStorage.getItem('jitter_newsletters')) || {};
+
+        function saveData() {
+            localStorage.setItem('jitter_publishers', JSON.stringify(publishers));
+            localStorage.setItem('jitter_newsletters', JSON.stringify(newsletters));
+        }
+
+        // --- UI Logic ---
+        function switchTab(tab) {
+            document.getElementById('tab-publishers').classList.toggle('hidden', tab !== 'publishers');
+            document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs');
+            
+            document.getElementById('nav-pub').className = tab === 'publishers' 
+                ? 'p-3 bg-white/10 text-secondary rounded-lg flex items-center gap-4 cursor-pointer' 
+                : 'p-3 text-textMuted hover:bg-white/5 hover:text-white rounded-lg flex items-center gap-4 cursor-pointer transition';
+            
+            document.getElementById('nav-log').className = tab === 'logs' 
+                ? 'p-3 bg-white/10 text-secondary rounded-lg flex items-center gap-4 cursor-pointer' 
+                : 'p-3 text-textMuted hover:bg-white/5 hover:text-white rounded-lg flex items-center gap-4 cursor-pointer transition';
+        }
+
+        function logMsg(msg) {
+            const time = new Date().toLocaleTimeString();
+            const logOutput = document.getElementById('log-output');
+            logOutput.innerText += `[${time}] ${msg}\n`;
+            logOutput.parentElement.scrollTop = logOutput.parentElement.scrollHeight;
+            console.log(`[${time}] ${msg}`);
+        }
+
+        // --- Publisher Management ---
+        function generateId(len, chars) {
+            let res = '';
+            for(let i=0; i<len; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+            return res;
+        }
+
+        function registerPublisher() {
+            const name = document.getElementById('pub-name').value.trim();
+            if (!name) return alert("Please enter a name.");
+
+            let code;
+            do { code = generateId(6, '0123456789'); } while (publishers[code]);
+            
+            const apiKey = generateId(24, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789');
+
+            publishers[code] = { name: name, api_key: apiKey };
+            saveData();
+            renderPublishers();
+            
+            document.getElementById('pub-name').value = '';
+            document.getElementById('modal-code').innerText = code;
+            document.getElementById('modal-key').innerText = apiKey;
+            document.getElementById('modal').classList.remove('hidden');
+            
+            logMsg(`[ADMIN] Registered new publisher: ${name} (Code: ${code})`);
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        function deletePublisher(code) {
+            if (confirm(`Delete publisher ${code}?`)) {
+                delete publishers[code];
+                if (newsletters[code]) delete newsletters[code];
+                saveData();
+                renderPublishers();
+                logMsg(`[ADMIN] Deleted publisher: ${code}`);
+            }
+        }
+
+        function viewApiKey(code) {
+            const pub = publishers[code];
+            if (pub) {
+                // Using prompt makes it very easy to highlight and copy the key
+                prompt(`API Key for ${pub.name} (Code: ${code}):`, pub.api_key);
+                logMsg(`[ADMIN] Viewed API key for publisher: ${code}`);
+            }
+        }
+
+        function renderPublishers() {
+            const list = document.getElementById('pub-list');
+            list.innerHTML = '';
+            for (const [code, pub] of Object.entries(publishers)) {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-800 hover:bg-white/5 transition';
+                
+                // Check if they have a newsletter
+                const letterExists = !!newsletters[code];
+
+                tr.innerHTML = `
+                    <td class="py-3 pl-2 font-mono">${code}</td>
+                    <td class="py-3 font-semibold">${pub.name}</td>
+                    <td class="py-3 text-textMuted">${letterExists ? '1' : '0'}</td>
+                    <td class="py-3 text-right">
+                        <button onclick="viewApiKey('${code}')" class="text-secondary hover:text-teal-300 p-2 rounded" title="View API Key">
+                            <span class="material-icons">vpn_key</span>
+                        </button>
+                        <button onclick="deletePublisher('${code}')" class="text-red-400 hover:text-red-300 p-2 rounded" title="Delete">
+                            <span class="material-icons">delete</span>
+                        </button>
+                    </td>
+                `;
+                list.appendChild(tr);
+            }
+        }
+
+        // --- PeerJS Server Logic ---
+        let peer;
+        const SERVER_ID = 'Jitter-Server';
+
+        function initPeerServer() {
+            logMsg(`[SYSTEM] Initializing PeerJS Server with ID: ${SERVER_ID}...`);
+            peer = new Peer(SERVER_ID, {
+                debug: 2
+            });
+
+            peer.on('open', (id) => {
+                logMsg(`[SYSTEM] Server successfully listening as: ${id}`);
+                updateStatus(true);
+            });
+
+            peer.on('connection', (conn) => {
+                logMsg(`[NET] Incoming connection request from: ${conn.peer}`);
+                
+                conn.on('open', () => {
+                    // Enforce the requirement: RELIABLE channel called "main"
+                    if (conn.label !== 'main') {
+                        logMsg(`[NET] Rejected connection. Invalid channel label: ${conn.label}`);
+                        conn.close();
+                        return;
+                    }
+                    if (!conn.reliable) {
+                        logMsg(`[NET] Rejected connection. Channel is not reliable.`);
+                        conn.close();
+                        return;
+                    }
+
+                    conn.on('data', (data) => {
+                        handleIncomingData(conn, data);
+                    });
+                });
+            });
+
+            peer.on('error', (err) => {
+                logMsg(`[ERROR] PeerJS Error: ${err.type} - ${err.message}`);
+                if (err.type === 'unavailable-id') {
+                    logMsg(`[FATAL] The ID '${SERVER_ID}' is currently taken on the signaling server. Please try again later.`);
+                    updateStatus(false, "ID Taken");
+                }
+            });
+
+            peer.on('disconnected', () => {
+                logMsg(`[SYSTEM] Disconnected from signaling server.`);
+                updateStatus(false);
+            });
+        }
+
+        function handleIncomingData(conn, data) {
+            try {
+                // Ensure data is parsed if sent as string, though PeerJS handles objects
+                const req = typeof data === 'string' ? JSON.parse(data) : data;
+                
+                if (req.role === 'client') {
+                    if (req.requestType === 'getNewestLetter') {
+                        logMsg(`[CLIENT] Requesting newest letter for code: ${req.publisherCode}`);
+                        const pubCode = req.publisherCode;
+                        
+                        if (newsletters[pubCode]) {
+                            conn.send(newsletters[pubCode]);
+                            logMsg(`[SERVER -> CLIENT] Sent newsletter data for ${pubCode}`);
+                        } else {
+                            conn.send({ error: "No newsletter found" });
+                            logMsg(`[SERVER -> CLIENT] No newsletter found for ${pubCode}`);
+                        }
+                    }
+                } 
+                else if (req.role === 'publisher') {
+                    if (req.requestType === 'publishLetter') {
+                        // Find publisher by API key
+                        let foundCode = null;
+                        let foundName = null;
+                        for (const [code, pub] of Object.entries(publishers)) {
+                            if (pub.api_key === req.APIKey) {
+                                foundCode = code;
+                                foundName = pub.name;
+                                break;
+                            }
+                        }
+
+                        if (foundCode) {
+                            logMsg(`[PUBLISHER] '${foundName}' (${foundCode}) publishing new letter: ${req.title}`);
+                            newsletters[foundCode] = {
+                                title: req.title || "Untitled",
+                                publisher: foundName,
+                                datePublished: Date.now(), // JS Timestamp
+                                bodyData: req.bodyData || ""
+                            };
+                            saveData();
+                            renderPublishers();
+                            conn.send({ status: "200 OK" });
+                        } else {
+                            logMsg(`[PUBLISHER] Failed authorization attempt. Invalid API Key.`);
+                            conn.send({ status: "401 UNAUTHORIZED" });
+                        }
+                    }
+                }
+            } catch (e) {
+                logMsg(`[ERROR] Failed handling data: ${e}`);
+            }
+        }
+
+        function updateStatus(isConnected, customText = null) {
+            const dot = document.getElementById('status-dot');
+            const txt = document.getElementById('status-text');
+            if (isConnected) {
+                dot.className = 'w-3 h-3 rounded-full bg-green-500';
+                txt.innerText = 'Online & Listening';
+            } else {
+                dot.className = 'w-3 h-3 rounded-full bg-red-500 animate-pulse';
+                txt.innerText = customText || 'Disconnected';
+            }
+        }
+
+        // --- Heartbeat Logic ---
+        // Checks every 5 seconds if connection to signaling server is dropped, and reconnects
+        setInterval(() => {
+            if (peer && peer.disconnected) {
+                logMsg(`[HEARTBEAT] Connection lost. Attempting to reconnect to signaling server...`);
+                peer.reconnect();
+            }
+        }, 5000);
+
+        // --- Initialization ---
+        window.onload = () => {
+            renderPublishers();
+            initPeerServer();
+        };
+    </script>
+</body>
+</html>
