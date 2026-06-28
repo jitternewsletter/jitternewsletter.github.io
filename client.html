@@ -166,8 +166,8 @@
                             <p class="text-textMuted">By <span id="reader-pub" class="text-secondary font-semibold">Publisher</span> • <span id="reader-date">Date</span></p>
                         </div>
                         <div class="flex-1 bg-white relative">
-                            <!-- We use an iframe to load the YYF link securely -->
-                            <iframe id="reader-frame" class="w-full h-full min-h-[600px] border-none"></iframe>
+                            <!-- We use an iframe to load the HTML securely -->
+                            <iframe id="reader-frame" class="w-full h-full min-h-[600px] border-none bg-white"></iframe>
                         </div>
                     </div>
                 </div>
@@ -384,7 +384,7 @@
             return div;
         }
 
-        function openReader(letter, isSaved) {
+        async function openReader(letter, isSaved) {
             currentLetterViewing = letter;
             document.getElementById('view-reader').classList.remove('hidden');
             document.getElementById('reader-title').innerText = letter.title;
@@ -394,23 +394,37 @@
             const frame = document.getElementById('reader-frame');
             const saveBtn = document.getElementById('btn-save-letter');
 
+            // Always clear src to prevent the browser from attempting a download
+            frame.removeAttribute('src');
+
             if (isSaved) {
-                // Load from blob
+                // Load from local IndexedDB
                 saveBtn.classList.add('hidden');
-                frame.removeAttribute('src');
                 frame.srcdoc = letter.offlineContent; 
             } else {
-                // Load live URL
+                // Load live URL via fetch to bypass YYF's auto-download headers
                 saveBtn.classList.remove('hidden');
                 saveBtn.onclick = () => saveCurrentNewsletter();
-                frame.removeAttribute('srcdoc');
-                frame.src = letter.bodyData;
+                
+                // Show a loading state inside the iframe
+                frame.srcdoc = `<html><body style="color:#A0A0A0; font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:90vh; margin:0; background:#121212;">Loading newsletter content...</body></html>`;
+                
+                try {
+                    const res = await fetch(letter.bodyData);
+                    if (!res.ok) throw new Error("Network response was not ok");
+                    const htmlContent = await res.text();
+                    frame.srcdoc = htmlContent;
+                } catch (err) {
+                    console.error("Fetch error:", err);
+                    frame.srcdoc = `<html><body style="color:#ef4444; font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:90vh; margin:0; background:#121212;">Failed to load newsletter content. It may be unavailable.</body></html>`;
+                }
             }
         }
 
         function closeReader() {
             document.getElementById('view-reader').classList.add('hidden');
             document.getElementById('reader-frame').src = ''; // Clear frame
+            document.getElementById('reader-frame').srcdoc = ''; // Clear srcdoc
             currentLetterViewing = null;
         }
 
@@ -444,7 +458,12 @@
                 
                 tx.oncomplete = () => {
                     btn.innerHTML = `<span class="material-icons">check</span> Saved!`;
-                    setTimeout(() => btn.classList.add('hidden'), 2000);
+                    setTimeout(() => {
+                        if(document.getElementById('view-reader').classList.contains('hidden') === false) {
+                            btn.innerHTML = `<span class="material-icons">download</span> Save Offline`;
+                            btn.classList.add('hidden');
+                        }
+                    }, 2000);
                 };
             } catch (err) {
                 console.error(err);

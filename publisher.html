@@ -51,7 +51,7 @@
     <nav class="w-64 bg-surface shadow-lg flex flex-col h-full border-r border-gray-800 z-10">
         <div class="p-6 flex items-center gap-3">
             <span class="material-icons text-secondary text-3xl">campaign</span>
-            <h1 class="text-2xl font-bold tracking-wider text-secondary">Jitter Publisher</h1>
+            <h1 class="text-2xl font-bold tracking-wider text-secondary">Jitter Pub</h1>
         </div>
         
         <div class="flex-1 px-4 space-y-2 mt-4">
@@ -290,7 +290,7 @@
             const formData = new FormData();
             formData.append('file', file);
             
-            // Standard form-data upload to YYF (Updated to /api/upload)
+            // Standard form-data upload to YYF
             const response = await fetch('https://yyf.mubilop.com/api/upload', {
                 method: 'POST',
                 body: formData
